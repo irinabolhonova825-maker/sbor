@@ -1,0 +1,6 @@
+.env
+telegram_aggregator.db
+__pycache__/
+*.pyc
+logs/
+*.log
