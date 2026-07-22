@@ -12,9 +12,8 @@
 ## Требования
 
 - Python 3.8+
-- `python-dotenv` — для загрузки переменных окружения
-- `sqlite3` — встроенный модуль Python
-- `curl` — установлен в системе (для отправки запросов)
+- Установленные пакеты: `python-dotenv`, `sqlalchemy` (и `psycopg2-binary` – если используется PostgreSQL)
+- SQLite (встроенный) или PostgreSQL (опционально)
 
 ## Установка
 
@@ -31,25 +30,34 @@ pip install python-dotenv
 Скопируйте полученный токен (например, 123456:ABC-DEF...).
 
 4. Настройте окружение
+Создайте файл .env в корне проекта
 | Переменная | Описание | Пример |
 |------------|----------|--------|
 | `TELEGRAM_BOT_TOKEN` | Токен бота от @BotFather | `123456:ABC-DEF...` |
 | `DATABASE_URL` | Строка подключения к PostgreSQL | `postgresql://user:password@localhost/telegram_aggregator` |
 
 5. Добавьте себя как администратора
+
 Выполните команду (замените 123456789 на ваш Telegram ID, его можно узнать у бота @userinfobot):
+python3 add_admin.py
+
+Если скрипт отсутствует, создайте его или выполните команду:
 python3 -c "
-import sqlite3
-conn = sqlite3.connect('telegram_aggregator.db')
-c = conn.cursor()
-c.execute('CREATE TABLE IF NOT EXISTS users (telegram_id INTEGER PRIMARY KEY, is_admin INTEGER DEFAULT 0)')
-c.execute('INSERT OR REPLACE INTO users (telegram_id, is_admin) VALUES (123456789, 1)')
-conn.commit()
-conn.close()
-print('✅ Администратор добавлен')
+from db_simple import User, SessionLocal
+session = SessionLocal()
+user = session.query(User).filter_by(telegram_id=1266582465).first()
+if not user:
+    user = User(telegram_id=1266582465, username='admin', first_name='Admin', is_admin=1)
+    session.add(user)
+else:
+    user.is_admin = 1
+session.commit()
+session.close()
+print('Администратор добавлен')
 "
 6. Запустите бота
 python3 bot_curl_full.py
+
 Бот начнёт опрашивать Telegram API и отвечать на команды.
 
 Команды бота
@@ -58,3 +66,25 @@ python3 bot_curl_full.py
 /help	Список доступных команд
 /stats	(только админ) Показывает общее количество сообщений и чатов
 /export	(только админ) Отправляет CSV-файл с сообщениями за последние 7 дней
+
+.
+├── bot_curl_full.py       # основной скрипт бота
+├── db_simple.py           # модели и работа с БД (SQLAlchemy)
+├── add_admin.py           # скрипт для добавления администратора
+├── requirements.txt       # зависимости
+├── .env                   # переменные окружения (токен, БД)
+├── .gitignore             # исключения для Git
+├── README.md              # этот файл
+└── telegram_aggregator.db # SQLite-база (создаётся автоматически)
+
+ Переключение между SQLite и PostgreSQL
+По умолчанию бот использует SQLite (файл telegram_aggregator.db).
+Чтобы переключиться на PostgreSQL:
+Установите psycopg2-binary: pip install psycopg2-binary.
+
+В файле .env измените DATABASE_URL на:
+DATABASE_URL=postgresql://user:password@host:port/database
+
+Убедитесь, что PostgreSQL запущен и база данных существует.
+
+Перезапустите бота – таблицы создадутся автоматически.
