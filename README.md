@@ -47,7 +47,7 @@ from db_simple import User, SessionLocal
 session = SessionLocal()
 user = session.query(User).filter_by(telegram_id=1266582465).first()
 if not user:
-    user = User(telegram_id=1266582465, username='admin', first_name='Admin', is_admin=1)
+    user = User(telegram_id=123456789, username='admin', first_name='Admin', is_admin=1)
     session.add(user)
 else:
     user.is_admin = 1
