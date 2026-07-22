@@ -1,13 +1,88 @@
-import subprocess
-import json
-import time
-import os
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
-import db_simple
+import sys
+print("🔴 0. Скрипт начал выполнение")
 
-# Файл для хранения последнего обработанного update_id
+try:
+    import subprocess
+    import json
+    import time
+    import os
+    from datetime import datetime
+    print("🔴 1. Импорты стандартные OK")
+except Exception as e:
+    print(f"🔴 Ошибка импорта стандартных модулей: {e}")
+    sys.exit(1)
+
+try:
+    from dotenv import load_dotenv
+    from pathlib import Path
+    print("🔴 2. Импорт dotenv OK")
+except Exception as e:
+    print(f"🔴 Ошибка импорта dotenv: {e}")
+    sys.exit(1)
+
+try:
+    # Загружаем .env
+    env_path = Path(__file__).parent / '.env'
+    load_dotenv(dotenv_path=env_path)
+    print(f"🔴 3. .env загружен, путь: {env_path}")
+except Exception as e:
+    print(f"🔴 Ошибка загрузки .env: {e}")
+    sys.exit(1)
+
+try:
+    TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not TOKEN:
+        print("❌ Токен не найден в .env!")
+        sys.exit(1)
+    print(f"🔴 4. Токен получен: {TOKEN[:10]}...")
+
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL не найден в .env!")
+        sys.exit(1)
+    print(f"🔴 5. DATABASE_URL получен: {DATABASE_URL[:30]}...")
+except Exception as e:
+    print(f"🔴 Ошибка чтения переменных: {e}")
+    sys.exit(1)
+
+BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 LAST_ID_FILE = 'last_update_id.txt'
+
+try:
+    import db_simple
+    print("🔴 6. db_simple импортирован успешно")
+except Exception as e:
+    print(f"🔴 Ошибка импорта db_simple: {e}")
+    sys.exit(1)
+
+# --- Функции ---
+def curl_request(url, method='GET', data=None):
+    cmd = ["curl", "-s", "-X", method, url]
+    if data:
+        for key, value in data.items():
+            cmd.extend(["-d", f"{key}={value}"])
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return None
+        return json.loads(result.stdout)
+    except Exception as e:
+        print(f"❌ curl_request ошибка: {e}")
+        return None
+
+def get_updates(offset=None):
+    url = f"{BASE_URL}/getUpdates?timeout=5"
+    if offset is not None:
+        url += f"&offset={offset}"
+    data = curl_request(url)
+    if data and data.get('ok'):
+        return data.get('result', [])
+    return []
+
+def send_message(chat_id, text):
+    url = f"{BASE_URL}/sendMessage"
+    data = {'chat_id': chat_id, 'text': text}
+    return curl_request(url, method='POST', data=data) is not None
 
 def get_last_update_id():
     try:
@@ -20,65 +95,40 @@ def save_last_update_id(update_id):
     with open(LAST_ID_FILE, 'w') as f:
         f.write(str(update_id))
 
-load_dotenv()
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-if not TOKEN:
-    print("❌ Токен не найден!")
-    exit(1)
-
-BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
-
-def curl_request(url, method='GET', data=None):
-    cmd = ["curl", "-s", "-X", method, url]
-    if data:
-        for key, value in data.items():
-            cmd.extend(["-d", f"{key}={value}"])
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode != 0:
-            return None
-        return json.loads(result.stdout)
-    except:
-        return None
-
-def get_updates(offset=None):
-    url = f"{BASE_URL}/getUpdates?timeout=5"
-    if offset:
-        url += f"&offset={offset}"
-    data = curl_request(url)
-    if data and data.get('ok'):
-        return data.get('result', [])
-    return []
-
-def send_message(chat_id, text):
-    url = f"{BASE_URL}/sendMessage"
-    data = {'chat_id': chat_id, 'text': text}
-    return curl_request(url, method='POST', data=data) is not None
-
+# --- main ---
 def main():
-    print("🤖 Бот-сборщик запущен (полная версия)")
-    print(f"✅ Токен: {TOKEN[:10]}...")
+    print("🔴 7. Вход в main()")
+    try:
+        # Удаляем вебхук
+        delete_url = f"{BASE_URL}/deleteWebhook"
+        curl_request(delete_url, method='GET')
+        print("✅ Вебхук удалён (если был)")
+    except Exception as e:
+        print(f"❌ Ошибка удаления вебхука: {e}")
 
-    # Если файла с last_update_id нет, получим последний ID из Telegram
+    print("🤖 Бот-сборщик запущен (полная версия)")
+
     if not os.path.exists(LAST_ID_FILE):
         print("🔄 Первый запуск: пропускаем старые обновления...")
-        # Получаем одно обновление, чтобы узнать последний update_id
-        url = f"{BASE_URL}/getUpdates?limit=1"
-        data = curl_request(url)
-        if data and data.get('ok') and data['result']:
-            last_id = data['result'][-1]['update_id']
+        old_updates = get_updates(offset=None)
+        if old_updates:
+            last_id = old_updates[-1]['update_id']
             save_last_update_id(last_id)
             print(f"✅ Установлен last_update_id: {last_id}")
         else:
-            # Если обновлений нет, сохраняем 0
             save_last_update_id(0)
+            print("✅ Нет старых обновлений, last_update_id = 0")
 
     last_update_id = get_last_update_id()
-    print(f"📌 Последний update_id: {last_update_id}")
+    print(f"📌 Текущий last_update_id: {last_update_id}")
 
     while True:
         try:
-            updates = get_updates(offset=last_update_id + 1 if last_update_id else None)
+            offset = last_update_id + 1
+            updates = get_updates(offset=offset)
+            if updates:
+                print(f"📦 Получено {len(updates)} обновлений")
+
             for update in updates:
                 update_id = update.get('update_id')
                 if update_id:
@@ -97,14 +147,21 @@ def main():
                 text = message.get('text', '')
                 date = message.get('date', datetime.now().isoformat())
 
-                db_simple.save_user(user_id, username, first_name, last_name)
-                db_simple.save_message(
-                    message.get('message_id'),
-                    chat_id,
-                    user_id,
-                    text,
-                    date
-                )
+                # Сохраняем в БД
+                try:
+                    db_simple.save_user(user_id, username, first_name, last_name)
+                    db_simple.save_message(
+                        message.get('message_id'),
+                        chat_id,
+                        user_id,
+                        text,
+                        date
+                    )
+                    chat_title = message['chat'].get('title', '')
+                    chat_type = message['chat'].get('type', '')
+                    db_simple.save_chat(chat_id, chat_title, chat_type)
+                except Exception as db_error:
+                    print(f"❌ Ошибка БД: {db_error}")
 
                 print(f"📩 [{first_name}] {text[:50]}")
 
@@ -137,7 +194,7 @@ def main():
                     else:
                         send_message(chat_id, "❌ У вас нет прав администратора.")
                 else:
-                    pass  # игнорируем обычные сообщения
+                    pass
 
             time.sleep(1)
 
@@ -149,4 +206,9 @@ def main():
             time.sleep(5)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"❌ Критическая ошибка в main: {e}")
+        import traceback
+        traceback.print_exc()

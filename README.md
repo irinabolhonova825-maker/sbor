@@ -31,8 +31,10 @@ pip install python-dotenv
 Скопируйте полученный токен (например, 123456:ABC-DEF...).
 
 4. Настройте окружение
-Создайте в папке проекта файл .env и запишите в него токен:
-TELEGRAM_BOT_TOKEN=ваш_токен
+| Переменная | Описание | Пример |
+|------------|----------|--------|
+| `TELEGRAM_BOT_TOKEN` | Токен бота от @BotFather | `123456:ABC-DEF...` |
+| `DATABASE_URL` | Строка подключения к PostgreSQL | `postgresql://user:password@localhost/telegram_aggregator` |
 
 5. Добавьте себя как администратора
 Выполните команду (замените 123456789 на ваш Telegram ID, его можно узнать у бота @userinfobot):

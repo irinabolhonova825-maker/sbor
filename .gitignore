@@ -1,6 +1,6 @@
 .env
-telegram_aggregator.db
-__pycache__/
+__pycache__
 *.pyc
-logs/
-*.log
+*.db
+*.sqlite
+last_update_id.txt

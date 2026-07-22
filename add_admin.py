@@ -1,29 +1,41 @@
-import sqlite3
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
-# Подключаемся к базе данных
-conn = sqlite3.connect('telegram_aggregator.db')
-cursor = conn.cursor()
+load_dotenv()
 
-# Создаём таблицу пользователей, если её нет
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_id INTEGER UNIQUE,
-    username TEXT,
-    first_name TEXT,
-    last_name TEXT,
-    is_admin INTEGER DEFAULT 0
-)
-''')
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    print("❌ DATABASE_URL не найден в .env")
+    exit(1)
 
-# Добавляем администратора (замените 1266582465 на ваш ID)
-telegram_id = 1266582465
-cursor.execute('''
-INSERT OR REPLACE INTO users (telegram_id, username, first_name, is_admin)
-VALUES (?, 'admin', 'Admin', 1)
-''', (telegram_id,))
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
 
-conn.commit()
-conn.close()
+from db_simple import User  # импортируем модель User
 
-print(f"✅ Пользователь {telegram_id} добавлен как администратор!")
+def add_admin(telegram_id, username="admin", first_name="Admin"):
+    session = Session()
+    user = session.query(User).filter_by(telegram_id=telegram_id).first()
+    if not user:
+        # Если пользователя нет – создаём
+        user = User(
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name,
+            is_admin=1
+        )
+        session.add(user)
+        session.commit()
+        print(f"✅ Пользователь {telegram_id} создан и назначен администратором!")
+    else:
+        user.is_admin = 1
+        session.commit()
+        print(f"✅ Пользователь {telegram_id} теперь администратор!")
+    session.close()
+
+if __name__ == "__main__":
+    # Замените 1266582465 на свой Telegram ID
+    admin_id = 1266582465
+    add_admin(admin_id)
