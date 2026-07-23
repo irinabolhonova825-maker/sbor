@@ -62,7 +62,7 @@ def curl_request(url, method='GET', data=None):
         for key, value in data.items():
             cmd.extend(["-d", f"{key}={value}"])
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
             return None
         return json.loads(result.stdout)
@@ -178,23 +178,35 @@ def main():
                         send_message(chat_id, "❌ У вас нет прав администратора.")
                 elif text == '/export':
                     if db_simple.is_admin(user_id):
-                        rows = db_simple.export_messages(chat_id, days=7)
+                        session = db_simple.get_session()
+                        rows = session.query(db_simple.Message).filter(db_simple.Message.chat_id == chat_id).order_by(db_simple.Message.date).all()
+                        session.close()
+        
                         if rows:
-                            csv = "Дата,Пользователь,Текст\n"
+                            csv_data = "Дата,Пользователь,Текст\n"
                             for row in rows:
-                                csv += f"{row[1]},{row[2]},{row[0].replace(',',' ')}\n"
+                                # Получаем имя пользователя
+                                user = session.query(db_simple.User).filter_by(telegram_id=row.user_id).first()
+                                username = user.first_name if user else str(row.user_id)
+                                csv_data += f"{row.date},{username},{row.text.replace(',',' ')}\n"
+            
+                            # Отправка через requests
                             url = f"{BASE_URL}/sendDocument"
-                            cmd = ["curl", "-s", "-X", "POST", url,
-                                   "-F", f"chat_id={chat_id}",
-                                   "-F", "document=@-;filename=export.csv"]
-                            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            p.communicate(input=csv.encode('utf-8'))
+                            files = {'document': ('export.csv', csv_data.encode('utf-8'))}
+                            data = {'chat_id': chat_id}
+                            try:
+                                import requests
+                                response = requests.post(url, data=data, files=files, timeout=30, verify=False)
+                                if response.status_code == 200:
+                                    send_message(chat_id, "✅ Файл отправлен!")
+                                else:
+                                    send_message(chat_id, f"❌ Ошибка: {response.status_code}")
+                            except Exception as e:
+                                send_message(chat_id, f"❌ Ошибка: {e}")
                         else:
-                            send_message(chat_id, "❌ Нет сообщений за последние 7 дней.")
+                            send_message(chat_id, "❌ Нет сообщений в этом чате.")
                     else:
                         send_message(chat_id, "❌ У вас нет прав администратора.")
-                else:
-                    pass
 
             time.sleep(1)
 
