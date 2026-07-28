@@ -7,18 +7,15 @@ def setup_logger(name=None, level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     
-    # Создаем форматтер
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Добавляем обработчик для вывода в консоль
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
-    # Создаем папку для логов если её нет
     import os
     if not os.path.exists('logs'):
         os.makedirs('logs')
