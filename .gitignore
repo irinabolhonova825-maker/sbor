@@ -1,6 +1,10 @@
 .env
-__pycache__
+telegram_aggregator.db
+last_update_id.txt
+__pycache__/
 *.pyc
-*.db
-*.sqlite
-last_update_id.txtmedia/
+logs/
+*.log
+media/
+*.csv
+*.xlsx
