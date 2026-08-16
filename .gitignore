@@ -1,10 +1,6 @@
 .env
-telegram_aggregator.db
-last_update_id.txt
 __pycache__/
 *.pyc
-logs/
-*.log
 media/
-*.csv
-*.xlsx
+bot.log
+*.db

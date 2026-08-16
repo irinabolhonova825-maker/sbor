@@ -1,33 +1,18 @@
+# utils/validators.py
 from datetime import datetime
-import re
 
-def validate_date(date_string):
-    """Проверка формата даты"""
+def validate_date(date_str: str) -> bool:
+    """Проверяет формат даты ГГГГ-ММ-ДД"""
     try:
-        datetime.strptime(date_string, '%d-%m-%Y')
+        datetime.strptime(date_str, "%Y-%m-%d")
         return True
     except ValueError:
         return False
 
-def validate_chat_id(chat_id):
-    """Проверка ID чата"""
+def validate_chat_id(chat_id_str: str) -> bool:
+    """Проверяет, что передан ID чата (целое число)"""
     try:
-        chat_id = int(chat_id)
-        return chat_id < 0
+        int(chat_id_str)
+        return True
     except ValueError:
         return False
-
-def validate_telegram_id(telegram_id):
-    """Проверка Telegram ID"""
-    try:
-        telegram_id = int(telegram_id)
-        return telegram_id > 0
-    except ValueError:
-        return False
-
-def sanitize_text(text):
-    """Очистка текста от опасных символов"""
-    if not text:
-        return ""
-    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
-    return text.strip()
