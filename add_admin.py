@@ -36,6 +36,6 @@ def add_admin(telegram_id, username="admin", first_name="Admin"):
     session.close()
 
 if __name__ == "__main__":
-    # Замените 1266582465 на свой Telegram ID
-    admin_id = 1266582465
+    # Замените 1234567890 на свой Telegram ID
+    admin_id = 1234567890
     add_admin(admin_id)
